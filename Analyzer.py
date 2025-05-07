@@ -5,7 +5,7 @@ import re
 import nltk
 from nltk.corpus import stopwords
 import datetime
-import os # Import os for path joining
+import os
 
 # Download necessary NLTK data (if you haven't already)
 # You only need to run this once
@@ -104,15 +104,25 @@ def analyze_tweets(df):
 
     # --- Engagement Analysis (Example: Daily Average Likes and Retweets) ---
     print("Analyzing engagement metrics...")
+    daily_engagement = None # Initialize to None
+
+    # Check if both likes and retweets columns exist
     if LIKES_COLUMN in df.columns and RETWEETS_COLUMN in df.columns:
         # Ensure engagement columns are numeric
         df[LIKES_COLUMN] = pd.to_numeric(df[LIKES_COLUMN], errors='coerce').fillna(0)
         df[RETWEETS_COLUMN] = pd.to_numeric(df[RETWEETS_COLUMN], errors='coerce').fillna(0)
 
+        # Group by date and calculate mean for likes and retweets
         daily_engagement = df.groupby('date')[[LIKES_COLUMN, RETWEETS_COLUMN]].mean()
         daily_engagement = daily_engagement.sort_index()
+
+        # *** FIX: Rename columns to lowercase 'likes' and 'retweets' for consistent API output ***
+        daily_engagement.rename(columns={
+            LIKES_COLUMN: 'likes',
+            RETWEETS_COLUMN: 'retweets'
+        }, inplace=True)
+
     else:
-        daily_engagement = None
         print("Engagement columns not found. Skipping engagement analysis.")
 
 
@@ -184,4 +194,3 @@ if __name__ == "__main__":
 
         print("\nData processing and saving complete.")
         print(f"Processed data saved in the '{OUTPUT_DIR}' directory.")
-

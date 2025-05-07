@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitter Analytics Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <style>
+        /* Custom styles for better layout and appearance */
+        body {
+            font-family: "Inter", sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color: #0056b3;
+            margin-bottom: 15px;
+        }
+        .chart-container {
+            position: relative;
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            background-color: #fff;
+        }
+        .term-list {
+            list-style: none;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .term-item {
+            background-color: #007bff;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="container">
+        <h1 class="text-3xl font-bold mb-6 text-center">Twitter Analytics Dashboard</h1>
+
+        <div class="chart-container">
+            <h2 class="text-2xl font-semibold mb-4">Daily Tweet Activity</h2>
+            <canvas id="activityChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+             <h2 class="text-2xl font-semibold mb-4">Daily Average Engagement (Likes)</h2>
+             <canvas id="engagementChartLikes"></canvas>
+        </div>
+
+         <div class="chart-container">
+             <h2 class="text-2xl font-semibold mb-4">Daily Average Engagement (Retweets)</h2>
+             <canvas id="engagementChartRetweets"></canvas>
+        </div>
+
+
+        <div class="chart-container">
+            <h2 class="text-2xl font-semibold mb-4">Most Common Terms</h2>
+            <ul id="termsList" class="term-list">
+                </ul>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        // Replace with the actual URL of your Flask backend when deployed
+        // For local testing, it's usually http://127.0.0.1:5000
+        const API_BASE_URL = 'http://127.0.0.1:5000';
+
+        // --- Data Fetching Functions ---
+        async function fetchData(endpoint) {
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error(`Error fetching data from ${endpoint}:`, error);
+                return null;
+            }
+        }
+
+        // --- Visualization Functions ---
+
+        function renderActivityChart(data) {
+            if (!data) return;
+
+            const ctx = document.getElementById('activityChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line', // Line chart for time-series data
+                data: {
+                    labels: Object.keys(data), // Dates as labels
+                    datasets: [{
+                        label: 'Number of Tweets',
+                        data: Object.values(data), // Tweet counts as data
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.1, // Smooth the line
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            },
+                             type: 'category', // Treat dates as categories
+                             labels: Object.keys(data).sort() // Sort labels chronologically
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Number of Tweets'
+                            },
+                            beginAtZero: true // Start y-axis at zero
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: false, // Title handled by H2 tag
+                            text: 'Daily Tweet Activity'
+                        }
+                    }
+                }
+            });
+        }
+
+         function renderEngagementChart(data, chartId, label, borderColor, backgroundColor) {
+             if (!data) return;
+
+             const dates = Object.keys(data).sort();
+             const engagementValues = dates.map(date => data[date][label.toLowerCase()]); // Extract value based on label
+
+             const ctx = document.getElementById(chartId).getContext('2d');
+             new Chart(ctx, {
+                 type: 'bar', // Bar chart for daily engagement
+                 data: {
+                     labels: dates, // Dates as labels
+                     datasets: [{
+                         label: `Average ${label}`,
+                         data: engagementValues, // Engagement counts as data
+                         backgroundColor: backgroundColor,
+                         borderColor: borderColor,
+                         borderWidth: 1
+                     }]
+                 },
+                 options: {
+                     responsive: true,
+                     scales: {
+                         x: {
+                             title: {
+                                 display: true,
+                                 text: 'Date'
+                             },
+                             type: 'category', // Treat dates as categories
+                             labels: dates // Sorted labels
+                         },
+                         y: {
+                             title: {
+                                 display: true,
+                                 text: `Average ${label}`
+                             },
+                             beginAtZero: true // Start y-axis at zero
+                         }
+                     },
+                     plugins: {
+                         title: {
+                             display: false, // Title handled by H2 tag
+                             text: `Daily Average ${label}`
+                         },
+                         legend: {
+                             display: false // Hide legend if only one dataset
+                         }
+                     }
+                 }
+             });
+         }
+
+
+        function renderCommonTerms(terms) {
+            if (!terms) return;
+
+            const termsList = document.getElementById('termsList');
+            termsList.innerHTML = ''; // Clear existing list
+
+            terms.forEach(item => {
+                const [term, count] = item;
+                const listItem = document.createElement('li');
+                // Display term and count, e.g., "term (count)"
+                listItem.textContent = `${term} (${count})`;
+                listItem.className = 'term-item'; // Apply Tailwind/custom class
+                termsList.appendChild(listItem);
+            });
+        }
+
+        // --- Initialize Dashboard ---
+        async function initializeDashboard() {
+            // Fetch data from backend endpoints
+            const activityData = await fetchData('/api/activity');
+            const engagementData = await fetchData('/api/engagement');
+            const termsData = await fetchData('/api/terms');
+
+            // Render visualizations
+            renderActivityChart(activityData);
+            // Assuming your engagement data JSON keys match 'likes' and 'retweets' columns
+            renderEngagementChart(engagementData, 'engagementChartLikes', 'Likes', 'rgba(255, 99, 132, 0.8)', 'rgba(255, 99, 132, 0.5)');
+            renderEngagementChart(engagementData, 'engagementChartRetweets', 'Retweets', 'rgba(54, 162, 235, 0.8)', 'rgba(54, 162, 235, 0.5)');
+            renderCommonTerms(termsData);
+        }
+
+        // Run initialization when the page loads
+        window.onload = initializeDashboard;
+
+    </script>
+</body>
+</html>
+```
